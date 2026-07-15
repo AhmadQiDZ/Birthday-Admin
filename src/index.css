@@ -1,0 +1,224 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #f3f4f6;
+  }
+  
+  html {
+    font-size: 16px;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-[#023d6d] text-white px-4 py-2 rounded-lg hover:bg-[#022c4f] transition-all duration-300 text-sm md:text-base;
+  }
+  .btn-accent {
+    @apply bg-[#f6484c] text-white px-4 py-2 rounded-lg hover:bg-[#e03a3e] transition-all duration-300 text-sm md:text-base;
+  }
+  .btn-outline {
+    @apply border border-[#023d6d] text-[#023d6d] px-4 py-2 rounded-lg hover:bg-[#023d6d] hover:text-white transition-all duration-300 text-sm md:text-base;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs md:text-sm;
+  }
+  .card {
+    @apply bg-white rounded-xl shadow-lg p-4 md:p-6;
+  }
+  .card-stats {
+    @apply bg-white rounded-xl shadow-lg p-4 text-center hover:shadow-xl transition-all duration-300;
+  }
+  .page-title {
+    @apply text-xl md:text-2xl lg:text-3xl font-bold text-primary;
+  }
+  .page-subtitle {
+    @apply text-sm text-gray-500 mt-1;
+  }
+}
+
+/* ============================================
+   RESPONSIVE UTILITIES
+   ============================================ */
+
+/* Mobile-first design */
+.container-responsive {
+  @apply w-full px-4 sm:px-6 md:px-8 max-w-7xl mx-auto;
+}
+
+/* Grid responsive */
+.grid-responsive {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4;
+}
+
+/* Table responsive */
+.table-responsive {
+  @apply w-full overflow-x-auto -mx-4 sm:mx-0;
+}
+
+.table-responsive table {
+  @apply w-full min-w-[600px] md:min-w-full;
+}
+
+/* Card grid for bookings on mobile */
+.booking-card-grid {
+  @apply grid grid-cols-1 gap-3 md:gap-4;
+}
+
+/* Filter buttons responsive */
+.filter-buttons {
+  @apply flex flex-wrap gap-1.5 md:gap-2;
+}
+
+.filter-buttons button {
+  @apply px-2.5 py-1.5 md:px-4 md:py-2 text-xs md:text-sm rounded-lg transition;
+}
+
+/* Stats cards responsive */
+.stats-grid {
+  @apply grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4;
+}
+
+.stats-grid .stat-card {
+  @apply p-3 md:p-4;
+}
+
+.stats-grid .stat-number {
+  @apply text-xl md:text-2xl font-bold;
+}
+
+.stats-grid .stat-label {
+  @apply text-xs text-gray-500;
+}
+
+/* Search input responsive */
+.search-input {
+  @apply w-full px-3 py-2 md:px-4 md:py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition;
+}
+
+/* Sidebar responsive */
+.sidebar {
+  @apply fixed top-0 left-0 z-50 w-64 h-full bg-primary text-white transition-transform duration-300 ease-in-out;
+}
+
+.sidebar-closed {
+  @apply -translate-x-full md:translate-x-0;
+}
+
+.sidebar-open {
+  @apply translate-x-0;
+}
+
+/* Modal responsive */
+.modal-overlay {
+  @apply fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4;
+}
+
+.modal-content {
+  @apply bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto;
+}
+
+.modal-header {
+  @apply p-4 md:p-6 border-b sticky top-0 bg-white z-10 flex justify-between items-center;
+}
+
+.modal-body {
+  @apply p-4 md:p-6 space-y-4;
+}
+
+.modal-footer {
+  @apply p-4 md:p-6 border-t flex justify-end;
+}
+
+/* Table styles */
+.table-wrapper {
+  @apply bg-white rounded-xl shadow-lg overflow-hidden;
+}
+
+.table-header {
+  @apply bg-gray-50 border-b;
+}
+
+.table-header th {
+  @apply text-left p-3 text-xs font-semibold text-gray-600;
+}
+
+.table-row {
+  @apply border-b hover:bg-gray-50 transition;
+}
+
+.table-cell {
+  @apply p-3 text-sm;
+}
+
+/* Mobile card styles */
+.mobile-card {
+  @apply bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition-all duration-300;
+}
+
+.mobile-card-header {
+  @apply flex justify-between items-start mb-3;
+}
+
+.mobile-card-body {
+  @apply space-y-2;
+}
+
+.mobile-card-row {
+  @apply flex justify-between text-sm;
+}
+
+.mobile-card-label {
+  @apply text-gray-500;
+}
+
+.mobile-card-value {
+  @apply font-medium;
+}
+
+/* Tablet card styles */
+.tablet-card {
+  @apply bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition-all duration-300;
+}
+
+/* Hide/Show utilities */
+.hide-on-mobile {
+  @apply hidden sm:block;
+}
+
+.show-on-mobile {
+  @apply block sm:hidden;
+}
+
+.hide-on-tablet {
+  @apply hidden md:block;
+}
+
+.show-on-tablet {
+  @apply block md:hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 rounded-full;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-400 rounded-full hover:bg-gray-500;
+}

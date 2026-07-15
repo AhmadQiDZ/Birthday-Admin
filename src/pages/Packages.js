@@ -1473,7 +1473,7 @@ export default function Packages() {
                                   const idx = parseInt(fromIndex) - 1;
                                   if (idx >= 0 && idx < formData.branches.length && idx !== branchIndex) {
                                     if (formData.branches[idx].tiers.length > 0) {
-                                      if (confirm(`Copy packages from "${formData.branches[idx].name_ar}" to "${branch.name_ar}"?`)) {
+                                      if (window.confirm(`Copy packages from "${formData.branches[idx].name_ar}" to "${branch.name_ar}"?`)) {
                                         copyTiersToBranch(idx, branchIndex);
                                       }
                                     } else {

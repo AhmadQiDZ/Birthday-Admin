@@ -20,7 +20,6 @@ export default function Packages() {
   const [auditLog, setAuditLog] = useState([]);
   const [showAudit, setShowAudit] = useState(false);
 
-  // ===== خيارات العملات =====
   const currencies = [
     { code: 'SAR', label: '🇸🇦 SAR - Saudi Riyal', symbol: 'ر.س' },
     { code: 'AED', label: '🇦🇪 AED - UAE Dirham', symbol: 'د.إ' },
@@ -30,7 +29,6 @@ export default function Packages() {
     { code: 'GBP', label: '🇬🇧 GBP - British Pound', symbol: '£' }
   ];
 
-  // ===== State للفورم =====
   const [formData, setFormData] = useState({
     venue_name_ar: '',
     venue_name_en: '',
@@ -60,7 +58,6 @@ export default function Packages() {
     tiers: []
   });
 
-  // ===== جلب البيانات =====
   useEffect(() => {
     fetchPackages();
     fetchCountriesAndCities();
@@ -140,7 +137,8 @@ export default function Packages() {
       branches: [
         ...formData.branches,
         {
-          id: Date.now(),
+          id: `new_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          _isNew: true,
           name_ar: '',
           name_en: '',
           city_id: formData.city_id || '',
@@ -174,7 +172,8 @@ export default function Packages() {
   function addTierToBranch(branchIndex) {
     const updatedBranches = [...formData.branches];
     updatedBranches[branchIndex].tiers.push({
-      id: Date.now(),
+      id: `new_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      _isNew: true,
       name_ar: '',
       name_en: '',
       description_ar: '',
@@ -191,13 +190,13 @@ export default function Packages() {
     const updatedBranches = [...formData.branches];
     const tier = updatedBranches[branchIndex].tiers[tierIndex];
     tier[field] = value;
-    
+
     if (field === 'price' || field === 'price_before_discount') {
       const price = parseFloat(tier.price) || 0;
       const priceBefore = parseFloat(tier.price_before_discount) || 0;
       tier.show_discount = priceBefore > price;
     }
-    
+
     setFormData({ ...formData, branches: updatedBranches });
   }
 
@@ -210,12 +209,13 @@ export default function Packages() {
   function copyTiersToBranch(fromBranchIndex, toBranchIndex) {
     const updatedBranches = [...formData.branches];
     const sourceTiers = updatedBranches[fromBranchIndex].tiers;
-    
+
     const copiedTiers = sourceTiers.map(tier => ({
       ...tier,
-      id: Date.now() + Math.random()
+      id: `new_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      _isNew: true
     }));
-    
+
     updatedBranches[toBranchIndex].tiers = copiedTiers;
     setFormData({ ...formData, branches: updatedBranches });
   }
@@ -225,7 +225,7 @@ export default function Packages() {
   // ============================================
   async function uploadImage(file) {
     if (!file) return null;
-    
+
     const fileExt = file.name.split('.').pop();
     const fileName = `package_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     const filePath = fileName;
@@ -262,12 +262,12 @@ export default function Packages() {
 
   async function handleImageUpload() {
     if (!selectedFiles.length) return;
-    
+
     setUploading(true);
     setUploadProgress(0);
     const uploadedUrls = [];
     let completed = 0;
-    
+
     for (const file of selectedFiles) {
       const url = await uploadImage(file);
       if (url) {
@@ -276,7 +276,7 @@ export default function Packages() {
       completed++;
       setUploadProgress(Math.round((completed / selectedFiles.length) * 100));
     }
-    
+
     if (uploadedUrls.length > 0) {
       setFormData({
         ...formData,
@@ -284,7 +284,7 @@ export default function Packages() {
       });
       alert(`✅ Successfully uploaded ${uploadedUrls.length} image(s)!`);
     }
-    
+
     setSelectedFiles([]);
     setUploading(false);
     setUploadProgress(0);
@@ -295,7 +295,7 @@ export default function Packages() {
       alert('⚠️ Please enter an image URL');
       return;
     }
-    
+
     setFormData({
       ...formData,
       images: [...formData.images, imageUrlInput.trim()]
@@ -310,14 +310,14 @@ export default function Packages() {
   }
 
   // ============================================
-  // دالة حفظ الباقة (المعدلة)
+  // ✅ دالة حفظ الباقة (تم إعادة كتابتها بالكامل لحل مشكلة التكرار)
   // ============================================
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitting(true);
-    
+
     const user = JSON.parse(localStorage.getItem('adminUser') || '{}');
-    
+
     if (formData.branches.length === 0) {
       alert('⚠️ Please add at least one branch.');
       setSubmitting(false);
@@ -339,7 +339,7 @@ export default function Packages() {
       });
     });
     const minPrice = allPrices.length > 0 ? Math.min(...allPrices) : 0;
-    
+
     const packageData = {
       venue_name_ar: formData.venue_name_ar.trim(),
       venue_name_en: formData.venue_name_en.trim(),
@@ -368,15 +368,15 @@ export default function Packages() {
       faq_ar: formData.faq_ar || [],
       faq_en: formData.faq_en || []
     };
-    
+
     console.log('📦 Submitting package:', packageData);
-    
+
     try {
       let packageId;
-      
+
       if (editingPackage) {
-        // تحديث الباقة الرئيسية
-        const { error, data } = await supabase
+        // ===== تحديث باقة موجودة =====
+        const { error: updateError } = await supabase
           .from('packages')
           .update({
             ...packageData,
@@ -384,141 +384,208 @@ export default function Packages() {
             updated_at: new Date().toISOString(),
             notes: note
           })
-          .eq('id', editingPackage.id)
-          .select();
+          .eq('id', editingPackage.id);
 
-        if (error) {
-          console.error('❌ Update error:', error);
-          alert('Error updating package: ' + error.message);
+        if (updateError) {
+          console.error('❌ Update error:', updateError);
+          alert('Error updating package: ' + updateError.message);
           setSubmitting(false);
           return;
         }
-        
-        if (data && data[0]) {
-          packageId = editingPackage.id;
-          
-          // 🔥 حل المشكلة: تحديث الفروع بدلاً من حذفها
-          // 1. جلب الفروع الحالية من قاعدة البيانات
-          const { data: existingBranches, error: fetchError } = await supabase
-            .from('branches')
-            .select('id, package_id')
-            .eq('package_id', packageId);
 
-          if (fetchError) {
-            console.error('❌ Error fetching existing branches:', fetchError);
+        packageId = editingPackage.id;
+        console.log('✅ Package updated, ID:', packageId);
+
+        // ===== جلب الفروع الموجودة في قاعدة البيانات =====
+        const { data: existingBranches, error: fetchBrErr } = await supabase
+          .from('branches')
+          .select('id')
+          .eq('package_id', packageId);
+
+        if (fetchBrErr) {
+          console.error('❌ Error fetching existing branches:', fetchBrErr);
+        }
+
+        const existingBranchIds = (existingBranches || []).map(b => b.id);
+
+        // ===== تحديد الفروع: موجودة للتحديث / جديدة للإضافة / محذوفة للحذف =====
+        for (const branch of formData.branches) {
+          const branchData = {
+            package_id: packageId,
+            name_ar: branch.name_ar.trim(),
+            name_en: branch.name_en.trim(),
+            city_id: branch.city_id || formData.city_id,
+            address_ar: branch.address_ar?.trim() || '',
+            address_en: branch.address_en?.trim() || '',
+            location_map_url: branch.location_map_url?.trim() || '',
+            map_embed_url: branch.map_embed_url?.trim() || '',
+            phone: branch.phone?.trim() || '',
+            working_hours: branch.working_hours?.trim() || ''
+          };
+
+          let branchId;
+
+          if (!branch._isNew && branch.id && existingBranchIds.includes(branch.id)) {
+            // ✅ فرع موجود → تحديثه فقط
+            console.log('🔄 Updating existing branch:', branch.id);
+            const { error: brUpdateErr } = await supabase
+              .from('branches')
+              .update(branchData)
+              .eq('id', branch.id);
+
+            if (brUpdateErr) {
+              console.error('❌ Error updating branch:', brUpdateErr);
+              continue;
+            }
+            branchId = branch.id;
+          } else {
+            // ✅ فرع جديد → إدراجه
+            console.log('➕ Inserting new branch');
+            const { data: newBrData, error: brInsertErr } = await supabase
+              .from('branches')
+              .insert(branchData)
+              .select();
+
+            if (brInsertErr) {
+              console.error('❌ Error inserting branch:', brInsertErr);
+              continue;
+            }
+            branchId = newBrData?.[0]?.id;
           }
 
-          // 2. قائمة IDs الفروع الحالية
-          const existingBranchIds = existingBranches?.map(b => b.id) || [];
-          const newBranchIds = formData.branches
-            .filter(b => typeof b.id === 'number' && b.id > 0)
-            .map(b => b.id);
+          if (!branchId) continue;
 
-          // 3. حذف الفروع التي تم إزالتها (مع التعامل مع الـ Constraints)
-          for (const branchId of existingBranchIds) {
-            if (!newBranchIds.includes(branchId)) {
+          // ===== جلب الـ tiers الموجودة في قاعدة البيانات لهذا الفرع =====
+          const { data: existingTiers, error: fetchTiersErr } = await supabase
+            .from('package_tiers')
+            .select('id')
+            .eq('branch_id', branchId);
+
+          const existingTierIds = (existingTiers || []).map(t => t.id);
+
+          // ===== تحديد الـ tiers: موجودة للتحديث / جديدة للإضافة / محذوفة للحذف =====
+          const formTierExistingIds = branch.tiers
+            .filter(t => !t._isNew && t.id && existingTierIds.includes(t.id))
+            .map(t => t.id);
+
+          // 1) حذف الـ tiers التي أُزيلت من الفورم فقط
+          const tiersToDelete = existingTierIds.filter(id => !formTierExistingIds.includes(id));
+          if (tiersToDelete.length > 0) {
+            console.log('🗑️ Deleting removed tiers:', tiersToDelete);
+            const { error: delTierErr } = await supabase
+              .from('package_tiers')
+              .delete()
+              .in('id', tiersToDelete);
+
+            if (delTierErr) {
+              console.warn('⚠️ Could not delete tiers (may have booking references), trying soft delete:', delTierErr.message);
+              // محاولة الحذف الناعم إذا كان هناك عمود deleted_at
               try {
-                // حذف الـ tiers المرتبطة بالفرع أولاً
                 await supabase
                   .from('package_tiers')
-                  .delete()
-                  .eq('branch_id', branchId);
-                
-                // ثم حذف الفرع
-                await supabase
-                  .from('branches')
-                  .delete()
-                  .eq('id', branchId);
-              } catch (err) {
-                console.warn('⚠️ Could not delete branch:', branchId, err);
-                // إذا كان هناك حجوزات مرتبطة، نقوم بتحديثها بدلاً من الحذف
-                await supabase
-                  .from('branches')
-                  .update({ package_id: null })
-                  .eq('id', branchId);
+                  .update({ deleted_at: new Date().toISOString() })
+                  .in('id', tiersToDelete);
+                console.log('✅ Soft deleted tiers instead');
+              } catch (softErr) {
+                console.warn('⚠️ Soft delete also failed, skipping:', softErr);
               }
             }
           }
 
-          // 4. تحديث أو إضافة الفروع الجديدة
-          for (const branch of formData.branches) {
-            const branchData = {
+          // 2) تحديث أو إدراج كل tier في الفورم
+          for (const tier of branch.tiers) {
+            const tierData = {
               package_id: packageId,
-              name_ar: branch.name_ar.trim(),
-              name_en: branch.name_en.trim(),
-              city_id: branch.city_id || formData.city_id,
-              address_ar: branch.address_ar?.trim() || '',
-              address_en: branch.address_en?.trim() || '',
-              location_map_url: branch.location_map_url?.trim() || '',
-              map_embed_url: branch.map_embed_url?.trim() || '',
-              phone: branch.phone?.trim() || '',
-              working_hours: branch.working_hours?.trim() || ''
+              branch_id: branchId,
+              name_ar: tier.name_ar.trim(),
+              name_en: tier.name_en.trim(),
+              description_ar: tier.description_ar?.trim() || '',
+              description_en: tier.description_en?.trim() || '',
+              price: parseFloat(tier.price) || 0,
+              price_before_discount: parseFloat(tier.price_before_discount) || 0,
+              show_discount: tier.show_discount || false,
+              max_children: parseInt(tier.max_children) || 0,
+              sort_order: 0
             };
 
-            let branchId;
-            
-            // إذا كان الفرع موجوداً (لديه id رقمي)، نقوم بتحديثه
-            if (typeof branch.id === 'number' && branch.id > 0 && existingBranchIds.includes(branch.id)) {
-              const { data, error } = await supabase
-                .from('branches')
-                .update(branchData)
-                .eq('id', branch.id)
-                .select();
-              
-              if (error) {
-                console.error('❌ Error updating branch:', error);
-                continue;
-              }
-              branchId = branch.id;
-            } else {
-              // فرع جديد - نقوم بإضافته
-              const { data, error } = await supabase
-                .from('branches')
-                .insert(branchData)
-                .select();
-              
-              if (error) {
-                console.error('❌ Error inserting branch:', error);
-                continue;
-              }
-              branchId = data[0].id;
-            }
-
-            if (branchId) {
-              // 5. تحديث الـ Tiers للفرع
-              // حذف الـ tiers القديمة للفرع
-              await supabase
+            if (!tier._isNew && tier.id && existingTierIds.includes(tier.id)) {
+              // ✅ tier موجود → تحديثه فقط (بدون حذف!)
+              console.log('🔄 Updating existing tier:', tier.id);
+              const { error: tierUpdErr } = await supabase
                 .from('package_tiers')
-                .delete()
-                .eq('branch_id', branchId);
-              
-              // إضافة الـ tiers الجديدة
-              for (const tier of branch.tiers) {
-                const { error: tierError } = await supabase
-                  .from('package_tiers')
-                  .insert({
-                    package_id: packageId,
-                    branch_id: branchId,
-                    name_ar: tier.name_ar.trim(),
-                    name_en: tier.name_en.trim(),
-                    description_ar: tier.description_ar?.trim() || '',
-                    description_en: tier.description_en?.trim() || '',
-                    price: parseFloat(tier.price) || 0,
-                    price_before_discount: parseFloat(tier.price_before_discount) || 0,
-                    show_discount: tier.show_discount || false,
-                    max_children: parseInt(tier.max_children) || 0,
-                    sort_order: 0
-                  });
+                .update(tierData)
+                .eq('id', tier.id);
 
-                if (tierError) {
-                  console.error('❌ Tier error:', tierError);
-                }
+              if (tierUpdErr) {
+                console.error('❌ Error updating tier:', tierUpdErr);
+              }
+            } else {
+              // ✅ tier جديد → إدراجه فقط
+              console.log('➕ Inserting new tier');
+              const { error: tierInsErr } = await supabase
+                .from('package_tiers')
+                .insert(tierData);
+
+              if (tierInsErr) {
+                console.error('❌ Error inserting tier:', tierInsErr);
               }
             }
           }
         }
+
+        // 3) حذف الفروع التي أُزيلت من الفورم
+        const formBranchExistingIds = formData.branches
+          .filter(b => !b._isNew && b.id && existingBranchIds.includes(b.id))
+          .map(b => b.id);
+
+        const branchesToDelete = existingBranchIds.filter(id => !formBranchExistingIds.includes(id));
+        for (const brIdToDelete of branchesToDelete) {
+          console.log('🗑️ Deleting removed branch:', brIdToDelete);
+
+          // محاولة حذف الـ tiers المرتبطة
+          const { data: brTiers } = await supabase
+            .from('package_tiers')
+            .select('id')
+            .eq('branch_id', brIdToDelete);
+
+          if (brTiers && brTiers.length > 0) {
+            const brTierIds = brTiers.map(t => t.id);
+            const { error: delBrTiersErr } = await supabase
+              .from('package_tiers')
+              .delete()
+              .in('id', brTierIds);
+
+            if (delBrTiersErr) {
+              console.warn('⚠️ Could not delete branch tiers, trying soft delete:', delBrTiersErr.message);
+              try {
+                await supabase
+                  .from('package_tiers')
+                  .update({ deleted_at: new Date().toISOString() })
+                  .in('id', brTierIds);
+              } catch (e) {
+                console.warn('⚠️ Soft delete failed for branch tiers:', e);
+              }
+            }
+          }
+
+          // حذف الفرع نفسه
+          const { error: delBrErr } = await supabase
+            .from('branches')
+            .delete()
+            .eq('id', brIdToDelete);
+
+          if (delBrErr) {
+            console.warn('⚠️ Could not delete branch:', delBrErr.message);
+            // فصل الفرع عن الباقة بدلاً من حذفه
+            await supabase
+              .from('branches')
+              .update({ package_id: null })
+              .eq('id', brIdToDelete);
+          }
+        }
+
       } else {
-        // إنشاء باقة جديدة
+        // ===== إنشاء باقة جديدة =====
         const { data, error } = await supabase
           .from('packages')
           .insert(packageData)
@@ -530,11 +597,10 @@ export default function Packages() {
           setSubmitting(false);
           return;
         }
-        
+
         if (data && data[0]) {
           packageId = data[0].id;
-          
-          // إضافة الفروع
+
           for (const branch of formData.branches) {
             const { data: branchData, error: branchError } = await supabase
               .from('branches')
@@ -559,7 +625,7 @@ export default function Packages() {
 
             if (branchData && branchData[0]) {
               const branchId = branchData[0].id;
-              
+
               for (const tier of branch.tiers) {
                 const { error: tierError } = await supabase
                   .from('package_tiers')
@@ -585,15 +651,13 @@ export default function Packages() {
           }
         }
       }
-      
+
       if (packageId) {
-        // تحديث has_multiple_branches
         await supabase
           .from('packages')
           .update({ has_multiple_branches: formData.branches.length > 1 })
           .eq('id', packageId);
 
-        // تسجيل في audit_log
         await supabase.from('audit_log').insert({
           user_id: user.id,
           user_name: user.name,
@@ -602,7 +666,7 @@ export default function Packages() {
           record_id: packageId,
           new_data: packageData
         });
-        
+
         alert(`✅ Package ${editingPackage ? 'updated' : 'created'} successfully!`);
         setShowModal(false);
         setEditingPackage(null);
@@ -610,12 +674,12 @@ export default function Packages() {
         fetchPackages();
         setNote('');
       }
-      
+
     } catch (err) {
       console.error('❌ Submit error:', err);
       alert('Error: ' + err.message);
     }
-    
+
     setSubmitting(false);
   }
 
@@ -652,13 +716,12 @@ export default function Packages() {
   }
 
   // ============================================
-  // دالة تحميل البيانات للتعديل
+  // دالة تحميل البيانات للتعديل (تم تعديلها لتمييز البيانات الموجودة)
   // ============================================
   async function loadPackageForEdit(pkg) {
     setEditingPackage(pkg);
     setSelectedCountryId(pkg.cities?.country_id || '');
-    
-    // جلب الفروع
+
     const { data: branchesData, error: branchesError } = await supabase
       .from('branches')
       .select('*')
@@ -669,7 +732,6 @@ export default function Packages() {
       console.error('❌ Error loading branches:', branchesError);
     }
 
-    // جلب الباقات (tiers) لكل فرع
     const branches = [];
     if (branchesData) {
       for (const branch of branchesData) {
@@ -685,6 +747,7 @@ export default function Packages() {
 
         branches.push({
           id: branch.id,
+          _isNew: false, // ✅ علامة مهمة: هذا فرع موجود في قاعدة البيانات
           name_ar: branch.name_ar || '',
           name_en: branch.name_en || '',
           city_id: branch.city_id || '',
@@ -696,6 +759,7 @@ export default function Packages() {
           working_hours: branch.working_hours || '',
           tiers: tiersData?.map(tier => ({
             id: tier.id,
+            _isNew: false, // ✅ علامة مهمة: هذا tier موجود في قاعدة البيانات
             name_ar: tier.name_ar || '',
             name_en: tier.name_en || '',
             description_ar: tier.description_ar || '',
@@ -737,52 +801,90 @@ export default function Packages() {
       branches: branches,
       tiers: []
     });
-    
+
     setSelectedFiles([]);
     setImageUrlInput('');
     setShowModal(true);
   }
 
   // ============================================
-  // دوال الحذف وتغيير الحالة
+  // دوال الحذف وتغيير الحالة (تم تعديلها للتعامل مع 409)
   // ============================================
   async function handleDelete(id) {
     if (!window.confirm('⚠️ Are you sure you want to delete this package?')) return;
-    
+
     const user = JSON.parse(localStorage.getItem('adminUser') || '{}');
     setSubmitting(true);
-    
+
     try {
       // 1. تحديث الحجوزات المرتبطة
       await supabase
         .from('bookings')
         .update({ package_id: null, package_tier_id: null, branch_id: null })
         .eq('package_id', id);
-      
+
       // 2. حذف التقييمات
-      await supabase.from('reviews').delete().eq('package_id', id);
-      
-      // 3. حذف الـ tiers
-      await supabase.from('package_tiers').delete().eq('package_id', id);
-      
+      try {
+        await supabase.from('reviews').delete().eq('package_id', id);
+      } catch (e) {
+        console.warn('⚠️ Could not delete reviews:', e);
+      }
+
+      // 3. جلب الـ tier IDs أولاً لمحاولة حذفها بشكل آمن
+      const { data: allTiers } = await supabase
+        .from('package_tiers')
+        .select('id')
+        .eq('package_id', id);
+
+      if (allTiers && allTiers.length > 0) {
+        const tierIds = allTiers.map(t => t.id);
+        const { error: delTiersErr } = await supabase
+          .from('package_tiers')
+          .delete()
+          .in('id', tierIds);
+
+        if (delTiersErr) {
+          console.warn('⚠️ Could not delete tiers, trying soft delete:', delTiersErr.message);
+          try {
+            await supabase
+              .from('package_tiers')
+              .update({ deleted_at: new Date().toISOString() })
+              .in('id', tierIds);
+          } catch (e) {
+            console.warn('⚠️ Soft delete of tiers also failed:', e);
+          }
+        }
+      }
+
       // 4. حذف الفروع
-      await supabase.from('branches').delete().eq('package_id', id);
-      
+      const { error: delBrErr } = await supabase
+        .from('branches')
+        .delete()
+        .eq('package_id', id);
+
+      if (delBrErr) {
+        console.warn('⚠️ Could not delete branches, unlinking instead:', delBrErr.message);
+        await supabase
+          .from('branches')
+          .update({ package_id: null })
+          .eq('package_id', id);
+      }
+
       // 5. حذف الباقة (soft delete)
       const { error } = await supabase
         .from('packages')
-        .update({ 
+        .update({
           deleted_at: new Date().toISOString(),
           notes: note || 'Deleted by admin'
         })
         .eq('id', id);
-      
+
       if (error) {
         alert('❌ Error deleting package: ' + error.message);
         setSubmitting(false);
         return;
       }
-      
+
       await supabase.from('audit_log').insert({
         user_id: user.id,
         user_name: user.name,
@@ -791,29 +893,29 @@ export default function Packages() {
         record_id: id,
         new_data: { deleted_at: new Date().toISOString(), notes: note }
       });
-      
+
       alert('✅ Package deleted successfully!');
       fetchPackages();
       setNote('');
-      
+
     } catch (err) {
       console.error('❌ Delete error:', err);
       alert('Error: ' + err.message);
     }
-    
+
     setSubmitting(false);
   }
 
   async function handleStatusChange(id, currentStatus) {
     const user = JSON.parse(localStorage.getItem('adminUser') || '{}');
     const newStatus = currentStatus === 'live' ? 'draft' : 'live';
-    
+
     const newNote = window.prompt('Enter note for status change:', newStatus === 'live' ? 'Branch Opened' : 'Branch closed');
     if (newNote === null) return;
-    
+
     const { error } = await supabase
       .from('packages')
-      .update({ 
+      .update({
         status: newStatus,
         notes: newNote,
         updated_by: user.id,
@@ -830,9 +932,34 @@ export default function Packages() {
         record_id: id,
         new_data: { status: newStatus, notes: newNote }
       });
-      
+
       fetchPackages();
     }
+  }
+
+  // ============================================
+  // دوال FAQ
+  // ============================================
+  function addFaq(lang) {
+    const key = lang === 'ar' ? 'faq_ar' : 'faq_en';
+    setFormData({
+      ...formData,
+      [key]: [...(formData[key] || []), { question: '', answer: '' }]
+    });
+  }
+
+  function updateFaq(lang, index, field, value) {
+    const key = lang === 'ar' ? 'faq_ar' : 'faq_en';
+    const updated = [...(formData[key] || [])];
+    updated[index][field] = value;
+    setFormData({ ...formData, [key]: updated });
+  }
+
+  function removeFaq(lang, index) {
+    const key = lang === 'ar' ? 'faq_ar' : 'faq_en';
+    const updated = [...(formData[key] || [])];
+    updated.splice(index, 1);
+    setFormData({ ...formData, [key]: updated });
   }
 
   // ============================================
@@ -849,8 +976,8 @@ export default function Packages() {
         <div key={pkg.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300">
           <div className="relative h-48 bg-gray-100">
             {pkg.images && pkg.images.length > 0 ? (
-              <img 
-                src={pkg.images[0]} 
+              <img
+                src={pkg.images[0]}
                 alt={pkg.venue_name_ar}
                 className="w-full h-full object-cover"
                 onError={(e) => {
@@ -867,8 +994,8 @@ export default function Packages() {
                 <span className="bg-accent text-white px-2 py-0.5 rounded-full text-xs">⭐ Featured</span>
               )}
               <span className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${
-                pkg.status === 'live' 
-                  ? 'bg-green-500 text-white' 
+                pkg.status === 'live'
+                  ? 'bg-green-500 text-white'
                   : 'bg-yellow-500 text-white'
               }`}>
                 {pkg.status === 'live' ? <Eye size={12} /> : <EyeOff size={12} />}
@@ -889,21 +1016,21 @@ export default function Packages() {
               </div>
             )}
           </div>
-          
+
           <div className="p-4">
             <h3 className="text-lg font-bold text-primary truncate">{pkg.venue_name_ar}</h3>
             <p className="text-sm text-gray-500 truncate">{pkg.venue_name_en}</p>
             <p className="text-sm text-gray-600 mt-1">
               {pkg.cities ? (
                 <span className="flex items-center gap-1">
-                  {pkg.cities.countries?.flag_emoji || '📍'} 
+                  {pkg.cities.countries?.flag_emoji || '📍'}
                   {pkg.cities.name_ar}
                 </span>
               ) : (
                 'غير محدد'
               )}
             </p>
-            
+
             {pkg.branches && pkg.branches.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {pkg.branches.slice(0, 3).map((branch, idx) => (
@@ -916,13 +1043,13 @@ export default function Packages() {
                 )}
               </div>
             )}
-            
+
             <div className="flex gap-1 mt-2">
               {pkg.images?.slice(0, 3).map((img, idx) => (
                 <div key={idx} className="w-8 h-8 bg-gray-100 rounded overflow-hidden border">
-                  <img 
-                    src={img} 
-                    alt="" 
+                  <img
+                    src={img}
+                    alt=""
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       e.target.src = 'https://placehold.co/40x40/023d6d/ffffff?text=No+Image';
@@ -934,25 +1061,25 @@ export default function Packages() {
                 <span className="text-xs text-gray-500 flex items-center">+{pkg.images.length - 3}</span>
               )}
             </div>
-            
+
             <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
-              <button 
+              <button
                 onClick={() => handleStatusChange(pkg.id, pkg.status)}
                 className={`text-xs px-2 py-1 rounded ${
-                  pkg.status === 'live' 
-                    ? 'bg-green-100 text-green-700' 
+                  pkg.status === 'live'
+                    ? 'bg-green-100 text-green-700'
                     : 'bg-yellow-100 text-yellow-700'
                 }`}
               >
                 {pkg.status === 'live' ? 'Set Draft' : 'Set Live'}
               </button>
-              <button 
+              <button
                 onClick={() => loadPackageForEdit(pkg)}
                 className="text-blue-500 hover:text-blue-700"
               >
                 <Edit size={18} />
               </button>
-              <button 
+              <button
                 onClick={() => handleDelete(pkg.id)}
                 className="text-red-500 hover:text-red-700"
               >
@@ -977,7 +1104,7 @@ export default function Packages() {
     <div>
       <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
         <h1 className="text-3xl font-bold text-primary">Packages</h1>
-        <button 
+        <button
           onClick={() => {
             setEditingPackage(null);
             resetForm();
@@ -1005,7 +1132,7 @@ export default function Packages() {
         <div className="text-center py-20 bg-white rounded-xl shadow-lg">
           <PackageIcon size={48} className="text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 text-lg">No packages found</p>
-          <button 
+          <button
             onClick={() => {
               setEditingPackage(null);
               resetForm();
@@ -1030,7 +1157,7 @@ export default function Packages() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b sticky top-0 bg-white z-10 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-primary">
-                {editingPackage ? 'Edit Package' : 'Add New Package'}
+                {editingPackage ? '✏️ Edit Package' : '➕ Add New Package'}
               </h2>
               <button onClick={() => {
                 setShowModal(false);
@@ -1041,12 +1168,12 @@ export default function Packages() {
                 <X size={24} />
               </button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               {/* ===== معلومات الباقة الأساسية ===== */}
               <div className="border rounded-lg p-4">
                 <h3 className="font-bold text-primary mb-3">📋 Basic Package Information</h3>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-gray-700 mb-2">📍 Venue Name (Arabic) *</label>
@@ -1176,13 +1303,13 @@ export default function Packages() {
               {/* ===== رفع الصور ===== */}
               <div className="border rounded-lg p-4">
                 <h3 className="font-bold text-primary mb-3">📸 Images</h3>
-                
+
                 <div className="flex flex-wrap gap-4 mb-4">
                   {formData.images.map((img, idx) => (
                     <div key={idx} className="relative w-24 h-24 bg-gray-100 rounded-lg overflow-hidden border">
-                      <img 
-                        src={img} 
-                        alt={`Package ${idx}`} 
+                      <img
+                        src={img}
+                        alt={`Package ${idx}`}
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           e.target.src = 'https://placehold.co/400x400/023d6d/ffffff?text=No+Image';
@@ -1198,7 +1325,7 @@ export default function Packages() {
                     </div>
                   ))}
                 </div>
-                
+
                 <div className="flex flex-wrap gap-3">
                   <label className="flex-1 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center py-4 cursor-pointer hover:border-primary">
                     <Upload size={24} className="text-gray-400" />
@@ -1222,7 +1349,7 @@ export default function Packages() {
                     </button>
                   )}
                 </div>
-                
+
                 <div className="mt-2 flex gap-2">
                   <input
                     type="url"
@@ -1284,331 +1411,449 @@ export default function Packages() {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
                     />
                   </div>
+                  <div>
+                    <label className="block text-gray-700 mb-2 text-sm">SEO Keywords (Arabic)</label>
+                    <input
+                      type="text"
+                      value={formData.seo_keywords_ar}
+                      onChange={(e) => setFormData({...formData, seo_keywords_ar: e.target.value})}
+                      placeholder="كلمة1, كلمة2, كلمة3"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 mb-2 text-sm">SEO Keywords (English)</label>
+                    <input
+                      type="text"
+                      value={formData.seo_keywords_en}
+                      onChange={(e) => setFormData({...formData, seo_keywords_en: e.target.value})}
+                      placeholder="word1, word2, word3"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* ===== الشروط والأحكام ===== */}
               <div className="border rounded-lg p-4">
                 <h3 className="font-bold text-primary mb-3">📜 Terms & Conditions</h3>
-                <div className="mt-2">
-                  <label className="block text-gray-700 mb-2">Terms (Arabic)</label>
-                  <textarea
-                    rows="3"
-                    value={formData.terms_ar}
-                    onChange={(e) => setFormData({...formData, terms_ar: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary"
-                  />
-                </div>
-                <div className="mt-2">
-                  <label className="block text-gray-700 mb-2">Terms (English)</label>
-                  <textarea
-                    rows="3"
-                    value={formData.terms_en}
-                    onChange={(e) => setFormData({...formData, terms_en: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-gray-700 mb-2 text-sm">Terms (Arabic)</label>
+                    <textarea
+                      rows="4"
+                      value={formData.terms_ar}
+                      onChange={(e) => setFormData({...formData, terms_ar: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 mb-2 text-sm">Terms (English)</label>
+                    <textarea
+                      rows="4"
+                      value={formData.terms_en}
+                      onChange={(e) => setFormData({...formData, terms_en: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* ============================================
-                  الفروع مع الباقات الخاصة بكل فرع
-              ============================================ */}
-              <div className="border-2 border-primary/20 rounded-lg p-4 bg-primary/5">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-primary text-lg flex items-center gap-2">
-                    <Building size={24} />
-                    Branches & Packages
-                    <span className="text-sm text-gray-400 font-normal">
-                      ({formData.branches.length} {formData.branches.length > 1 ? 'فروع' : 'فرع'})
-                    </span>
-                  </h3>
+              {/* ===== FAQ ===== */}
+              <div className="border rounded-lg p-4">
+                <h3 className="font-bold text-primary mb-3">❓ FAQ</h3>
+
+                {/* Arabic FAQ */}
+                <div className="mb-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-gray-700 text-sm font-semibold">FAQ (Arabic)</label>
+                    <button
+                      type="button"
+                      onClick={() => addFaq('ar')}
+                      className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200"
+                    >
+                      <Plus size={14} className="inline" /> Add
+                    </button>
+                  </div>
+                  {(formData.faq_ar || []).map((faq, idx) => (
+                    <div key={idx} className="border rounded p-3 mb-2 bg-gray-50">
+                      <div className="flex justify-end mb-2">
+                        <button type="button" onClick={() => removeFaq('ar', idx)} className="text-red-400 hover:text-red-600">
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={faq.question}
+                        onChange={(e) => updateFaq('ar', idx, 'question', e.target.value)}
+                        placeholder="Question (Arabic)"
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm mb-2 focus:outline-none focus:border-primary"
+                      />
+                      <textarea
+                        rows="2"
+                        value={faq.answer}
+                        onChange={(e) => updateFaq('ar', idx, 'answer', e.target.value)}
+                        placeholder="Answer (Arabic)"
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-primary"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* English FAQ */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-gray-700 text-sm font-semibold">FAQ (English)</label>
+                    <button
+                      type="button"
+                      onClick={() => addFaq('en')}
+                      className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200"
+                    >
+                      <Plus size={14} className="inline" /> Add
+                    </button>
+                  </div>
+                  {(formData.faq_en || []).map((faq, idx) => (
+                    <div key={idx} className="border rounded p-3 mb-2 bg-gray-50">
+                      <div className="flex justify-end mb-2">
+                        <button type="button" onClick={() => removeFaq('en', idx)} className="text-red-400 hover:text-red-600">
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={faq.question}
+                        onChange={(e) => updateFaq('en', idx, 'question', e.target.value)}
+                        placeholder="Question (English)"
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm mb-2 focus:outline-none focus:border-primary"
+                      />
+                      <textarea
+                        rows="2"
+                        value={faq.answer}
+                        onChange={(e) => updateFaq('en', idx, 'answer', e.target.value)}
+                        placeholder="Answer (English)"
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-primary"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ===== الفروع والباقات ===== */}
+              <div className="border rounded-lg p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-bold text-primary">🏢 Branches & Package Tiers</h3>
                   <button
                     type="button"
                     onClick={addBranch}
-                    className="btn-primary flex items-center gap-2 text-sm"
+                    className="btn-primary text-sm px-4 py-2 flex items-center gap-1"
                   >
                     <Plus size={16} /> Add Branch
                   </button>
                 </div>
 
                 {formData.branches.length === 0 && (
-                  <div className="text-center py-8 text-gray-400">
-                    <Building size={48} className="mx-auto mb-2 opacity-30" />
-                    <p>No branches added yet. Click "Add Branch" to get started.</p>
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                    <Building size={32} className="text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-400">No branches added yet. Click "Add Branch" to start.</p>
                   </div>
                 )}
 
                 {formData.branches.map((branch, branchIndex) => (
-                  <div key={branch.id} className="bg-white rounded-xl border border-gray-200 p-4 mt-4 shadow-sm">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
-                          {branchIndex + 1}
-                        </div>
-                        <h4 className="font-bold text-primary">
-                          {branch.name_ar || branch.name_en || `Branch ${branchIndex + 1}`}
-                        </h4>
+                  <div key={branch.id} className="border-2 border-gray-200 rounded-lg p-4 mb-4 bg-gray-50">
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-semibold text-primary flex items-center gap-2">
+                        <Building size={18} />
+                        Branch {branchIndex + 1}
+                        {!branch._isNew && (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Existing</span>
+                        )}
+                        {branch._isNew && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">New</span>
+                        )}
+                      </h4>
+                      <div className="flex gap-2 items-center">
+                        {/* زر نسخ الباقات بين الفروع */}
+                        {formData.branches.length > 1 && branch.tiers.length > 0 && (
+                          <select
+                            onChange={(e) => {
+                              const toIdx = parseInt(e.target.value);
+                              if (toIdx !== branchIndex && !isNaN(toIdx)) {
+                                if (window.confirm(`Copy tiers from Branch ${branchIndex + 1} to Branch ${toIdx + 1}?`)) {
+                                  copyTiersToBranch(branchIndex, toIdx);
+                                }
+                                e.target.value = '';
+                              }
+                            }}
+                            className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-primary"
+                            defaultValue=""
+                          >
+                            <option value="" disabled>Copy tiers to...</option>
+                            {formData.branches.map((_, i) => (
+                              i !== branchIndex && <option key={i} value={i}>Branch {i + 1}</option>
+                            ))}
+                          </select>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeBranch(branchIndex)}
+                          className="text-red-500 hover:text-red-700 p-1"
+                          title="Remove branch"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeBranch(branchIndex)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 size={18} />
-                      </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                       <div>
-                        <label className="block text-gray-600 text-sm mb-1">Branch Name (Arabic) *</label>
+                        <label className="block text-gray-600 text-xs mb-1">Branch Name (Arabic) *</label>
                         <input
                           type="text"
+                          required
                           value={branch.name_ar}
                           onChange={(e) => updateBranch(branchIndex, 'name_ar', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
-                          required
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary"
+                          placeholder="اسم الفرع بالعربي"
                         />
                       </div>
                       <div>
-                        <label className="block text-gray-600 text-sm mb-1">Branch Name (English) *</label>
+                        <label className="block text-gray-600 text-xs mb-1">Branch Name (English) *</label>
                         <input
                           type="text"
+                          required
                           value={branch.name_en}
                           onChange={(e) => updateBranch(branchIndex, 'name_en', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
-                          required
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary"
+                          placeholder="Branch name in English"
                         />
                       </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-gray-600 text-sm mb-1">City</label>
+                      <div>
+                        <label className="block text-gray-600 text-xs mb-1">Branch City</label>
                         <select
                           value={branch.city_id}
-                          onChange={(e) => updateBranch(branchIndex, 'city_id', parseInt(e.target.value))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                          onChange={(e) => updateBranch(branchIndex, 'city_id', parseInt(e.target.value) || '')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary"
                         >
-                          <option value="">Same as main city</option>
+                          <option value="">Same as package city</option>
                           {cities.map(city => (
-                            <option key={city.id} value={city.id}>{city.name_ar} - {city.name_en}</option>
+                            <option key={city.id} value={city.id}>
+                              {city.countries?.flag_emoji || ''} {city.name_ar}
+                            </option>
                           ))}
                         </select>
                       </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-gray-600 text-sm mb-1">Address (Arabic)</label>
-                        <input
-                          type="text"
-                          value={branch.address_ar}
-                          onChange={(e) => updateBranch(branchIndex, 'address_ar', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-gray-600 text-sm mb-1">Address (English)</label>
-                        <input
-                          type="text"
-                          value={branch.address_en}
-                          onChange={(e) => updateBranch(branchIndex, 'address_en', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
-                        />
-                      </div>
                       <div>
-                        <label className="block text-gray-600 text-sm mb-1">📍 Location URL</label>
-                        <input
-                          type="url"
-                          value={branch.location_map_url}
-                          onChange={(e) => updateBranch(branchIndex, 'location_map_url', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
-                          placeholder="https://maps.google.com/..."
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-gray-600 text-sm mb-1">🗺️ Embed URL</label>
-                        <input
-                          type="url"
-                          value={branch.map_embed_url}
-                          onChange={(e) => updateBranch(branchIndex, 'map_embed_url', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
-                          placeholder="https://www.google.com/maps/embed?pb=..."
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-gray-600 text-sm mb-1">📞 Phone</label>
+                        <label className="block text-gray-600 text-xs mb-1">Phone</label>
                         <input
                           type="text"
                           value={branch.phone}
                           onChange={(e) => updateBranch(branchIndex, 'phone', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary"
+                          placeholder="+966 5x xxx xxxx"
                         />
                       </div>
                       <div>
-                        <label className="block text-gray-600 text-sm mb-1">⏰ Working Hours</label>
+                        <label className="block text-gray-600 text-xs mb-1">Address (Arabic)</label>
+                        <input
+                          type="text"
+                          value={branch.address_ar}
+                          onChange={(e) => updateBranch(branchIndex, 'address_ar', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary"
+                          placeholder="العنوان بالعربي"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-600 text-xs mb-1">Address (English)</label>
+                        <input
+                          type="text"
+                          value={branch.address_en}
+                          onChange={(e) => updateBranch(branchIndex, 'address_en', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary"
+                          placeholder="Address in English"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-600 text-xs mb-1">Google Maps URL</label>
+                        <input
+                          type="url"
+                          value={branch.location_map_url}
+                          onChange={(e) => updateBranch(branchIndex, 'location_map_url', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary"
+                          placeholder="https://maps.google.com/..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-600 text-xs mb-1">Map Embed URL</label>
+                        <input
+                          type="url"
+                          value={branch.map_embed_url}
+                          onChange={(e) => updateBranch(branchIndex, 'map_embed_url', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary"
+                          placeholder="https://www.google.com/maps/embed?..."
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-gray-600 text-xs mb-1">Working Hours</label>
                         <input
                           type="text"
                           value={branch.working_hours}
                           onChange={(e) => updateBranch(branchIndex, 'working_hours', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
-                          placeholder="9:00 AM - 10:00 PM"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary"
+                          placeholder="Sat-Thu: 10:00 AM - 10:00 PM"
                         />
                       </div>
                     </div>
 
-                    <div className="border-t border-gray-200 pt-4 mt-2">
+                    {/* ===== Package Tiers ===== */}
+                    <div className="border-t pt-3 mt-2">
                       <div className="flex justify-between items-center mb-3">
-                        <h5 className="font-medium text-gray-700 flex items-center gap-2">
-                          <PackageIcon size={16} />
-                          Packages for this branch
-                          <span className="text-xs text-gray-400">
-                            ({branch.tiers.length} {branch.tiers.length > 1 ? 'باقات' : 'باقة'})
-                          </span>
-                        </h5>
-                        <div className="flex gap-2">
-                          {formData.branches.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const fromIndex = window.prompt(
-                                  `Enter the branch number (1-${formData.branches.length}) to copy packages from:`,
-                                  '1'
-                                );
-                                if (fromIndex) {
-                                  const idx = parseInt(fromIndex) - 1;
-                                  if (idx >= 0 && idx < formData.branches.length && idx !== branchIndex) {
-                                    if (formData.branches[idx].tiers.length > 0) {
-                                      if (window.confirm(`Copy packages from "${formData.branches[idx].name_ar}" to "${branch.name_ar}"?`)) {
-                                        copyTiersToBranch(idx, branchIndex);
-                                      }
-                                    } else {
-                                      alert('The selected branch has no packages to copy.');
-                                    }
-                                  } else {
-                                    alert('Invalid branch number.');
-                                  }
-                                }
-                              }}
-                              className="text-sm text-primary hover:text-accent flex items-center gap-1"
-                            >
-                              <Copy size={14} /> Copy from another branch
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => addTierToBranch(branchIndex)}
-                            className="text-sm text-primary hover:text-accent flex items-center gap-1"
-                          >
-                            <Plus size={14} /> Add Package
-                          </button>
-                        </div>
+                        <h5 className="font-semibold text-gray-700 text-sm">📦 Package Tiers</h5>
+                        <button
+                          type="button"
+                          onClick={() => addTierToBranch(branchIndex)}
+                          className="text-xs bg-accent text-white px-3 py-1.5 rounded-full hover:bg-accent/80 flex items-center gap-1"
+                        >
+                          <Plus size={14} /> Add Tier
+                        </button>
                       </div>
 
                       {branch.tiers.length === 0 && (
-                        <p className="text-gray-400 text-sm text-center py-4">
-                          No packages for this branch yet. Click "Add Package" to create one.
+                        <p className="text-gray-400 text-sm text-center py-4 bg-white rounded border">
+                          No tiers added. Click "Add Tier" to add packages.
                         </p>
                       )}
 
-                      {branch.tiers.map((tier, tierIndex) => {
-                        const hasTierDiscount = tier.price_before_discount > 0 && tier.price_before_discount > tier.price;
-                        const discountPercentTier = hasTierDiscount 
-                          ? Math.round(((tier.price_before_discount - tier.price) / tier.price_before_discount) * 100)
-                          : 0;
-
-                        return (
-                          <div key={tier.id} className="bg-gray-50 rounded-lg p-3 mt-2 border border-gray-200">
-                            <div className="flex justify-between items-center mb-2">
-                              <span className="text-sm font-medium text-primary">
-                                Package {tierIndex + 1}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => removeTierFromBranch(branchIndex, tierIndex)}
-                                className="text-red-500 hover:text-red-700"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                              <div>
-                                <label className="block text-gray-600 text-xs mb-1">Name (Arabic) *</label>
-                                <input
-                                  type="text"
-                                  value={tier.name_ar}
-                                  onChange={(e) => updateTierInBranch(branchIndex, tierIndex, 'name_ar', e.target.value)}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
-                                  required
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-gray-600 text-xs mb-1">Name (English) *</label>
-                                <input
-                                  type="text"
-                                  value={tier.name_en}
-                                  onChange={(e) => updateTierInBranch(branchIndex, tierIndex, 'name_en', e.target.value)}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
-                                  required
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-gray-600 text-xs mb-1">Max Children</label>
-                                <input
-                                  type="number"
-                                  value={tier.max_children}
-                                  onChange={(e) => updateTierInBranch(branchIndex, tierIndex, 'max_children', e.target.value)}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
-                                />
-                              </div>
-                              <div className="col-span-2">
-                                <label className="block text-gray-600 text-xs mb-1">Description (Arabic)</label>
-                                <input
-                                  type="text"
-                                  value={tier.description_ar}
-                                  onChange={(e) => updateTierInBranch(branchIndex, tierIndex, 'description_ar', e.target.value)}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
-                                />
-                              </div>
-                              <div className="col-span-2">
-                                <label className="block text-gray-600 text-xs mb-1">Description (English)</label>
-                                <input
-                                  type="text"
-                                  value={tier.description_en}
-                                  onChange={(e) => updateTierInBranch(branchIndex, tierIndex, 'description_en', e.target.value)}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-gray-600 text-xs mb-1">Price *</label>
-                                <input
-                                  type="number"
-                                  value={tier.price}
-                                  onChange={(e) => updateTierInBranch(branchIndex, tierIndex, 'price', e.target.value)}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
-                                  required
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-gray-600 text-xs mb-1">Price Before Discount</label>
-                                <input
-                                  type="number"
-                                  value={tier.price_before_discount}
-                                  onChange={(e) => updateTierInBranch(branchIndex, tierIndex, 'price_before_discount', e.target.value)}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:border-primary text-sm"
-                                  placeholder="Leave empty for no discount"
-                                />
-                              </div>
-                              {hasTierDiscount && (
-                                <div className="col-span-2 text-xs text-green-600 bg-green-50 p-1.5 rounded">
-                                  💰 Discount: {tier.price_before_discount} → {tier.price} SAR ({discountPercentTier}% OFF)
-                                </div>
+                      {branch.tiers.map((tier, tierIndex) => (
+                        <div key={tier.id} className="border rounded-lg p-3 mb-3 bg-white">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs font-semibold text-gray-500">
+                              Tier {tierIndex + 1}
+                              {!tier._isNew && (
+                                <span className="ml-1 text-green-600">(Existing)</span>
                               )}
+                              {tier._isNew && (
+                                <span className="ml-1 text-blue-600">(New)</span>
+                              )}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeTierFromBranch(branchIndex, tierIndex)}
+                              className="text-red-400 hover:text-red-600"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-gray-500 text-xs mb-1">Tier Name (Arabic) *</label>
+                              <input
+                                type="text"
+                                required
+                                value={tier.name_ar}
+                                onChange={(e) => updateTierInBranch(branchIndex, tierIndex, 'name_ar', e.target.value)}
+                                className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-primary"
+                                placeholder="اسم الباقة"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-gray-500 text-xs mb-1">Tier Name (English) *</label>
+                              <input
+                                type="text"
+                                required
+                                value={tier.name_en}
+                                onChange={(e) => updateTierInBranch(branchIndex, tierIndex, 'name_en', e.target.value)}
+                                className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-primary"
+                                placeholder="Tier name"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-gray-500 text-xs mb-1">Price * ({formData.currency})</label>
+                              <input
+                                type="number"
+                                required
+                                min="0"
+                                step="0.01"
+                                value={tier.price}
+                                onChange={(e) => updateTierInBranch(branchIndex, tierIndex, 'price', e.target.value)}
+                                className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-primary"
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-gray-500 text-xs mb-1">Price Before Discount</label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={tier.price_before_discount}
+                                onChange={(e) => updateTierInBranch(branchIndex, tierIndex, 'price_before_discount', e.target.value)}
+                                className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-primary"
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-gray-500 text-xs mb-1">Max Children</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={tier.max_children}
+                                onChange={(e) => updateTierInBranch(branchIndex, tierIndex, 'max_children', e.target.value)}
+                                className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-primary"
+                                placeholder="0"
+                              />
+                            </div>
+                            {tier.show_discount && (
+                              <div className="flex items-end">
+                                <span className="text-green-600 text-xs bg-green-50 px-3 py-1.5 rounded border border-green-200">
+                                  ✅ Discount shown ({Math.round((1 - (parseFloat(tier.price) || 0) / (parseFloat(tier.price_before_discount) || 1)) * 100)}% off)
+                                </span>
+                              </div>
+                            )}
+                            <div className="md:col-span-2">
+                              <label className="block text-gray-500 text-xs mb-1">Description (Arabic)</label>
+                              <textarea
+                                rows="2"
+                                value={tier.description_ar}
+                                onChange={(e) => updateTierInBranch(branchIndex, tierIndex, 'description_ar', e.target.value)}
+                                className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-primary"
+                                placeholder="وصف الباقة بالعربي"
+                              />
+                            </div>
+                            <div className="md:col-span-2">
+                              <label className="block text-gray-500 text-xs mb-1">Description (English)</label>
+                              <textarea
+                                rows="2"
+                                value={tier.description_en}
+                                onChange={(e) => updateTierInBranch(branchIndex, tierIndex, 'description_en', e.target.value)}
+                                className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-primary"
+                                placeholder="Tier description in English"
+                              />
                             </div>
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* ===== أزرار الإرسال ===== */}
-              <div className="flex justify-end gap-3 pt-4 sticky bottom-0 bg-white py-4 border-t">
+              {/* ===== ملاحظة ===== */}
+              {editingPackage && (
+                <div className="border rounded-lg p-4 bg-yellow-50">
+                  <h3 className="font-bold text-yellow-700 mb-2">📝 Note</h3>
+                  <textarea
+                    rows="2"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Add a note for this update..."
+                    className="w-full px-4 py-2 border border-yellow-300 rounded-lg focus:outline-none focus:border-yellow-500 text-sm"
+                  />
+                </div>
+              )}
+
+              {/* ===== أزرار الحفظ ===== */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
                 <button
                   type="button"
                   onClick={() => {
@@ -1617,16 +1862,26 @@ export default function Packages() {
                     setSelectedFiles([]);
                     setImageUrlInput('');
                   }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  disabled={submitting}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn-primary px-6 py-2"
-                  disabled={uploading || submitting || formData.branches.length === 0}
+                  disabled={submitting}
+                  className="btn-primary px-8 py-2 flex items-center gap-2"
                 >
-                  {submitting ? (editingPackage ? 'Updating...' : 'Creating...') : (editingPackage ? 'Update Package' : 'Create Package')}
+                  {submitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      {editingPackage ? 'Updating...' : 'Creating...'}
+                    </>
+                  ) : (
+                    <>
+                      {editingPackage ? '✅ Update Package' : '➕ Create Package'}
+                    </>
+                  )}
                 </button>
               </div>
             </form>
